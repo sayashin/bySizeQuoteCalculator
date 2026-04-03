@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Place this file at:
+    android/app/src/main/res/values-v35/styles.xml
+
+    This overrides the NoActionBar theme for Android 15+ (API 35)
+    to explicitly opt IN to edge-to-edge (the new default behavior).
+    Without this, some devices may show inconsistent behavior.
+-->
+<resources>
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <!-- Opt OUT of the system forcibly making edge-to-edge = let Capacitor/WindowCompat handle it -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">false</item>
+    </style>
+</resources>

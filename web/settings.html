@@ -1,0 +1,323 @@
+<!-- settings.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Price Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { height: 100%; }
+
+    body {
+      background: #111;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 16px 16px 0 16px;
+      padding-top: calc(16px + env(safe-area-inset-top));
+      padding-bottom: calc(90px + env(safe-area-inset-bottom));
+      min-height: 100%;
+    }
+
+    @media screen and (min-width: 600px), screen and (orientation: landscape) {
+      html { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      body { overflow-y: visible; }
+    }
+
+    /* ── Nav ── */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0 16px 0;
+    }
+    .nav-title { font-size: 20px; font-weight: 600; color: #fff; }
+    .back-link {
+      text-decoration: none;
+      color: #999;
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #1a1a1a;
+    }
+    .back-link:hover { background: #222; color: #fff; }
+
+    /* ── Section labels ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin: 20px 0 8px 0;
+    }
+    .section-label:first-of-type { margin-top: 0; }
+
+    /* ── Cards ── */
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Fields ── */
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 9px 12px;
+      font-size: 15px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 8px;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    input[type="number"]:focus,
+    input[type="text"]:focus,
+    select:focus { outline: none; border-color: #555; }
+    input::placeholder { color: #555; }
+
+    .field { margin-bottom: 10px; }
+    .field:last-child { margin-bottom: 0; }
+
+    /* ── Toggle row ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-top: 1px solid #222;
+      margin-top: 4px;
+    }
+    .toggle-label { font-size: 14px; color: #ccc; }
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: #fff;
+      cursor: pointer;
+    }
+
+    /* ── Hint text ── */
+    .hint {
+      font-size: 12px;
+      color: #555;
+      margin-top: -6px;
+      margin-bottom: 10px;
+    }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+    button {
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid #333;
+      background: #222;
+      color: #fff;
+      transition: background 0.15s;
+    }
+    button:hover { background: #2a2a2a; }
+    button:active { background: #333; }
+
+    .btn-primary {
+      background: #fff;
+      color: #111;
+      border-color: #fff;
+    }
+    .btn-primary:hover { background: #e8e8e8; }
+
+    .btn-danger { color: #ff6b6b; border-color: #3a1a1a; background: #1e1010; }
+    .btn-danger:hover { background: #2a1212; }
+
+    .btn-full { flex: 1; }
+
+    /* ── Status ── */
+    #status {
+      margin: 12px 0 0 0;
+      padding: 10px 14px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #aaa;
+      min-height: 20px;
+    }
+    #status:empty { display: none; }
+  </style>
+</head>
+
+<body>
+  <div class="nav-bar">
+    <span class="nav-title">⚙️ Settings</span>
+    <a href="index.html" class="back-link">← 🧮 Calculator</a>
+  </div>
+
+  <!-- Edit price -->
+  <div class="section-label">💰 Edit price</div>
+  <div class="card">
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="categorySelect">Category</label>
+        <select id="categorySelect" name="categorySelect"></select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="productSelect">Product</label>
+        <select id="productSelect" name="productSelect"></select>
+      </div>
+    </div>
+    <div class="row3" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="brokerPrice">Broker ($/sqft)</label>
+        <input type="number" id="brokerPrice" name="brokerPrice" step="0.01" min="0" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="customerPrice">Customer ($/sqft)</label>
+        <input type="number" id="customerPrice" name="customerPrice" step="0.01" min="0" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label id="churchPriceLabel" for="churchPrice">Other ($/sqft)</label>
+        <input type="number" id="churchPrice" name="churchPrice" step="0.01" min="0" />
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button id="saveBtn" class="btn-primary">💾 Save price</button>
+      <button id="deleteProductBtn" class="btn-danger">🗑️ Delete product</button>
+    </div>
+  </div>
+
+  <!-- Add product -->
+  <div class="section-label">➕ Add new product</div>
+  <div class="card">
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="categorySelectForAdd">Existing category</label>
+        <select id="categorySelectForAdd" name="categorySelectForAdd"></select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="newCategoryInput">Or new category</label>
+        <input type="text" id="newCategoryInput" name="newCategoryInput" placeholder="Type to create" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="newProductInput">Product name</label>
+      <input type="text" id="newProductInput" name="newProductInput" placeholder="Enter product name" />
+    </div>
+    <div class="row3" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="newBrokerPrice">Broker</label>
+        <input type="number" id="newBrokerPrice" name="newBrokerPrice" value="1" step="0.01" min="0" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="newCustomerPrice">Customer</label>
+        <input type="number" id="newCustomerPrice" name="newCustomerPrice" value="5" step="0.01" min="0" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label id="newChurchPriceLabel" for="newChurchPrice">Other</label>
+        <input type="number" id="newChurchPrice" name="newChurchPrice" value="3" step="0.01" min="0" />
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button id="confirmAddProductBtn" class="btn-primary">➕ Add product</button>
+    </div>
+  </div>
+
+  <!-- Quote settings -->
+  <div class="section-label">🧾 Quote settings</div>
+  <div class="card">
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="unitSystemInput">Measurement units</label>
+        <select id="unitSystemInput" name="unitSystemInput">
+          <option value="imperial">Imperial — ft / sqft</option>
+          <option value="metric">Metric — m / sqm</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="currencySymbolInput">Currency symbol</label>
+        <input type="text" id="currencySymbolInput" name="currencySymbolInput" placeholder="e.g. $ € £" maxlength="4" />
+      </div>
+    </div>
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="minChargeInput">Min charge ($)</label>
+        <input type="number" id="minChargeInput" name="minChargeInput" step="0.01" min="0" placeholder="e.g. 10.00" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="hqSurchargeInput">HQ surcharge ($/sqft)</label>
+        <input type="number" id="hqSurchargeInput" name="hqSurchargeInput" step="0.01" min="0" placeholder="e.g. 1.00" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="otherLabelInput">"Other" customer type label</label>
+      <input type="text" id="otherLabelInput" name="otherLabelInput" placeholder="e.g. nonprofit, wholesale, VIP" />
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Enable tax</span>
+      <input type="checkbox" id="taxEnabledInput" name="taxEnabledInput" />
+    </div>
+    <div class="field" style="margin-top:10px;">
+      <label for="taxRateInput">Tax rate (%)</label>
+      <input type="number" id="taxRateInput" name="taxRateInput" step="0.01" min="0" max="100" placeholder="e.g. 8.25" />
+    </div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button id="saveSettingsBtn" class="btn-primary">💾 Save settings</button>
+      <button id="resetBtn">🔄 Reset prices</button>
+    </div>
+  </div>
+
+  <!-- Data -->
+  <div class="section-label">📦 Data</div>
+  <div class="card">
+    <div style="font-size:13px;color:#666;margin-bottom:12px;">
+      Back up your custom prices or restore them on another device.
+    </div>
+    <div class="btn-row" style="margin-top:0;">
+      <button id="exportPricesBtn" class="btn-full">⬆️ Export prices JSON</button>
+      <button id="importPricesBtn" class="btn-full">⬇️ Import prices JSON</button>
+    </div>
+  </div>
+
+  <!-- File input at body level — display:none blocks click on older Android WebViews -->
+  <input type="file" id="importPricesFile" accept=".json,application/json"
+    style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;" />
+
+  <div id="status"></div>
+
+  <script src="settings.js"></script>
+  <script>
+    (function(){
+      try {
+        const controls = document.querySelectorAll('input,textarea,select');
+        let counter = 0;
+        controls.forEach((el) => {
+          if (!el.id && !el.name) {
+            const gen = `autogen_${(el.tagName||'el').toLowerCase()}_${Date.now().toString(36)}_${counter++}`;
+            el.name = gen;
+          }
+        });
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

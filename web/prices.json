@@ -1,0 +1,38 @@
+{
+  "Product 1": {
+    "Product 1 variation 1": {
+      "broker": 1.5,
+      "customer": 5,
+      "other": 3
+    },
+    "Product 1 variation 2": {
+      "broker": 3.5,
+      "customer": 7.5,
+      "other": 5
+    }
+  },
+  "Product 2": {
+    "Product 2 variation 1": {
+      "broker": 1.25,
+      "customer": 5.5,
+      "other": 3.5
+    },
+    "Product 2 variation 2": {
+      "broker": 1.75,
+      "customer": 6,
+      "other": 4
+    }
+  },
+  "Product 3": {
+    "Product 3 variation 1": {
+      "broker": 2.25,
+      "customer": 6.5,
+      "other": 4.75
+    },
+    "Product 3 variation 2": {
+      "broker": 3,
+      "customer": 7.25,
+      "other": 5.5
+    }
+  }
+}

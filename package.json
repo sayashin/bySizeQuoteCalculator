@@ -1,0 +1,69 @@
+{
+  "name": "broker-price-calculator",
+  "version": "2.0.0",
+  "description": "Fast price calculator for signage brokers - works on mobile and desktop",
+  "main": "main.js",
+  "author": "Fred",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.sulimovich.pricecalculator",
+    "productName": "Price Calculator",
+    "files": [
+      "web/**/*",
+      "main.js",
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "web/prices.json",
+        "to": "prices.json"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "web/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "web/icon.png",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "web/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "keywords": [
+    "pwa",
+    "calculator",
+    "prices",
+    "signage"
+  ],
+  "dependencies": {
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/share": "^8.0.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1"
+  },
+  "type": "commonjs"
+}

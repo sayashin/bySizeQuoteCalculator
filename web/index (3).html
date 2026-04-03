@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Calculator" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Fast estimate calculator for signage brokers" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icon.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="icon.png">
+  <link rel="icon" href="icon.ico" sizes="any">
+  <title>Price Calculator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { height: 100%; }
+
+    body {
+      background: #111;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 16px 16px 0 16px;
+      padding-top: calc(16px + env(safe-area-inset-top));
+      padding-bottom: calc(90px + env(safe-area-inset-bottom));
+      min-height: 100%;
+    }
+
+    @media screen and (min-width: 600px), screen and (orientation: landscape) {
+      html { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      body { overflow-y: visible; }
+    }
+
+    /* ── Nav ── */
+    .nav-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0 16px 0;
+    }
+    .nav-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .nav-links { display: flex; gap: 8px; }
+    .nav-link {
+      text-decoration: none;
+      color: #999;
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #1a1a1a;
+    }
+    .nav-link:hover { background: #222; color: #fff; }
+
+    /* ── Cards ── */
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 12px;
+    }
+
+    /* ── Fields ── */
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 9px 12px;
+      font-size: 15px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 8px;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    input[type="number"]:focus,
+    input[type="text"]:focus,
+    select:focus {
+      outline: none;
+      border-color: #555;
+    }
+    input::placeholder { color: #555; }
+
+    .field { margin-bottom: 0; }
+    .field + .field { margin-top: 10px; }
+
+    /* ── Inline toggle row ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-top: 1px solid #222;
+      margin-top: 4px;
+    }
+    .toggle-label { font-size: 14px; color: #ccc; }
+    .toggle-right { display: flex; align-items: center; gap: 10px; }
+    .toggle-badge {
+      font-size: 12px;
+      color: #888;
+      background: #222;
+      border: 1px solid #333;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: #fff;
+      cursor: pointer;
+    }
+
+    /* ── Result block ── */
+    .result-block {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .result-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+    .result-value { font-size: 28px; font-weight: 600; color: #fff; }
+    .result-sub { font-size: 13px; color: #666; margin-top: 4px; }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+    button {
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid #333;
+      background: #222;
+      color: #fff;
+      transition: background 0.15s;
+    }
+    button:hover { background: #2a2a2a; }
+    button:active { background: #333; }
+
+    .btn-primary {
+      background: #fff;
+      color: #111;
+      border-color: #fff;
+    }
+    .btn-primary:hover { background: #e8e8e8; }
+    .btn-primary:active { background: #d0d0d0; }
+
+    .btn-sm { padding: 8px 14px; font-size: 13px; }
+    .btn-full { flex: 1; }
+
+    /* ── Cart ── */
+    .cart-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #222;
+    }
+    .cart-item:last-child { border-bottom: none; }
+    .ci-info { flex: 1; }
+    .ci-name { font-size: 14px; font-weight: 500; color: #fff; }
+    .ci-detail { font-size: 12px; color: #666; margin-top: 3px; }
+    .ci-price { font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    .remove-btn:hover { color: #888; background: none; }
+
+    /* ── Totals ── */
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 13px;
+      color: #888;
+    }
+    .total-row.grand {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      border-top: 1px solid #2a2a2a;
+      margin-top: 6px;
+      padding-top: 10px;
+    }
+
+    /* ── Empty cart ── */
+    #cartEmpty {
+      text-align: center;
+      padding: 24px 0;
+      color: #555;
+      font-size: 14px;
+    }
+
+    /* ── sr-only ── */
+    .sr-only {
+      position: absolute !important;
+      height: 1px; width: 1px;
+      overflow: hidden;
+      clip: rect(1px,1px,1px,1px);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Navigation -->
+  <div class="nav-bar">
+    <span class="nav-title">🧮 Price Calculator</span>
+    <div class="nav-links">
+      <a href="estimates.html" class="nav-link">📑 Estimates</a>
+      <a href="settings.html" class="nav-link">⚙️ Settings</a>
+    </div>
+  </div>
+
+  <!-- Client -->
+  <div class="card">
+    <div class="card-title">👤 Client</div>
+    <div class="field">
+      <label for="clientName">Client name</label>
+      <input type="text" id="clientName" name="clientName" placeholder="e.g. Acme Corp" />
+    </div>
+  </div>
+
+  <!-- Product -->
+  <div class="card">
+    <div class="card-title">🏷️ Product</div>
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field">
+        <label for="categorySelect">Category</label>
+        <select id="categorySelect" name="categorySelect"></select>
+      </div>
+      <div class="field">
+        <label for="productSelect">Product</label>
+        <select id="productSelect" name="productSelect"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="customerType">Customer type</label>
+      <select id="customerType" name="customerType">
+        <option value="broker">Broker</option>
+        <option value="customer">Customer</option>
+        <option value="church">Other</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Size & Quantity -->
+  <div class="card">
+    <div class="card-title">📐 Size &amp; Quantity</div>
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field">
+        <label id="widthLabel" for="widthFeet">Width</label>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="widthFeet" name="widthFeet" placeholder="ft" style="flex:1;" />
+          <label class="sr-only" for="widthInches">Width inches</label>
+          <input type="number" id="widthInches" name="widthInches" placeholder="in" style="flex:1;" />
+        </div>
+      </div>
+      <div class="field">
+        <label id="heightLabel" for="heightFeet">Height</label>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="heightFeet" name="heightFeet" placeholder="ft" style="flex:1;" />
+          <label class="sr-only" for="heightInches">Height inches</label>
+          <input type="number" id="heightInches" name="heightInches" placeholder="in" style="flex:1;" />
+        </div>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label for="quantity">Quantity</label>
+      <input type="number" id="quantity" name="quantity" min="1" value="1" />
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">High quality</span>
+      <div class="toggle-right">
+        <span class="toggle-badge" id="hqSurchargeLabel">+$1.00</span>
+        <span style="font-size:12px;color:#666;" id="hqSurchargeUnit">/sqft</span>
+        <input type="checkbox" id="highQuality" name="highQuality" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-block">
+    <div class="result-label">Unit price</div>
+    <h3 id="result" style="font-size:28px;font-weight:600;color:#fff;margin:0;"></h3>
+    <div class="result-sub" id="pricePerSqft"></div>
+  </div>
+
+  <!-- Actions -->
+  <div class="btn-row">
+    <button id="calculateBtn" type="button" class="btn-primary btn-full">Calculate</button>
+    <button id="addToCartBtn" type="button" class="btn-full">+ Add to cart</button>
+    <button type="button" class="btn-sm" onclick="clearForm()">Clear</button>
+  </div>
+
+  <!-- Custom price -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">✏️ Custom price (optional)</div>
+    <div class="field">
+      <label id="customPriceLabel" for="customPrice">Price per sqft override</label>
+      <input type="number" id="customPrice" name="customPrice" placeholder="e.g. 7.50" step="0.01" />
+    </div>
+  </div>
+
+  <!-- Cart -->
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="card-title" style="margin-bottom:0;">🛒 Cart</div>
+      <button type="button" class="btn-sm" id="clearCartBtn" style="font-size:12px;padding:5px 10px;">Clear cart</button>
+    </div>
+
+    <div id="cartEmpty" style="display:none;">No items yet</div>
+
+    <table id="cartTable" style="width:100%;border-collapse:collapse;display:none;">
+      <thead>
+        <tr style="border-bottom:1px solid #2a2a2a;">
+          <th style="text-align:left;padding:0 0 8px 0;font-size:11px;font-weight:500;color:#666;">Item</th>
+          <th style="padding:0 0 8px 0;font-size:11px;font-weight:500;color:#666;text-align:center;">Qty</th>
+          <th style="text-align:right;padding:0 0 8px 0;font-size:11px;font-weight:500;color:#666;">Unit</th>
+          <th style="text-align:right;padding:0 0 8px 0;font-size:11px;font-weight:500;color:#666;">Total</th>
+          <th style="width:24px;"></th>
+        </tr>
+      </thead>
+      <tbody id="cartBody"></tbody>
+    </table>
+
+    <div id="cartTotalsWrap" style="display:none;">
+      <div style="margin-top:10px;">
+        <label for="discountPercent" style="font-size:12px;color:#666;margin-bottom:5px;display:block;">Discount (%)</label>
+        <input type="number" id="discountPercent" name="discountPercent" min="0" max="100" value="0" />
+      </div>
+      <div id="cartTotals" style="margin-top:12px;"></div>
+      <div class="btn-row" style="margin-top:12px;margin-bottom:0;">
+        <button id="savePdfBtn" type="button" class="btn-primary btn-full">Save PDF</button>
+        <button id="sharePdfBtn" type="button" class="btn-full">Share PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor PDF libs -->
+  <script src="vendor/html2canvas.min.js"></script>
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="capacitor.js"></script>
+
+  <script>
+    (function () {
+      if (window.jspdf && window.jspdf.jsPDF && !window.jsPDF) window.jsPDF = window.jspdf.jsPDF;
+      if (window.jspdf && window.jspdf.default && !window.jsPDF) window.jsPDF = window.jspdf.default;
+    })();
+  </script>
+
+  <script src="app.js"></script>
+
+  <script>
+    // Show/hide cart table and totals based on cart content
+    const _origRenderCart = typeof renderCart === 'function' ? renderCart : null;
+
+    function updateCartVisibility() {
+      const tbody = document.getElementById('cartBody');
+      const table = document.getElementById('cartTable');
+      const empty = document.getElementById('cartEmpty');
+      const totalsWrap = document.getElementById('cartTotalsWrap');
+      const hasItems = tbody && tbody.children.length > 0;
+      if (table) table.style.display = hasItems ? 'table' : 'none';
+      if (empty) empty.style.display = hasItems ? 'none' : 'block';
+      if (totalsWrap) totalsWrap.style.display = hasItems ? 'block' : 'none';
+    }
+
+    const _observer = new MutationObserver(updateCartVisibility);
+    const _tbody = document.getElementById('cartBody');
+    if (_tbody) _observer.observe(_tbody, { childList: true });
+    updateCartVisibility();
+
+    function reloadSettings() {
+      loadSettings();
+      applyOtherLabel();
+      applyUnitLabels();
+      updateCartTotals();
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reloadSettings();
+    });
+    window.addEventListener('pageshow', reloadSettings);
+    window.addEventListener('focus', reloadSettings);
+  </script>
+
+  <script>
+    (async function () {
+      const isCapacitor = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web');
+      if (isCapacitor) {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        } catch (e) {}
+        return;
+      }
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(() => console.log('Service Worker registered'))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      }
+    })();
+  </script>
+</body>
+</html>

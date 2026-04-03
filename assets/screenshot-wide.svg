@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#111" />
+  <text x="50%" y="10%" font-size="40" fill="#fff" text-anchor="middle">Price Calculator</text>
+  <rect x="60" y="120" width="1160" height="420" fill="#222" rx="8"/>
+  <text x="120" y="180" font-size="22" fill="#ddd">Client: Acme Co.</text>
+  <text x="120" y="220" font-size="20" fill="#ddd">Estimate: $1234.56</text>
+</svg>

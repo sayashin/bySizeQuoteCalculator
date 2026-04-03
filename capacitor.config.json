@@ -1,0 +1,6 @@
+{
+  "appId": "com.sulimovich.pricecalculator",
+  "appName": "Price by Size: Quote Calculator",
+  "webDir": "web",
+  "bundledWebRuntime": true
+}
