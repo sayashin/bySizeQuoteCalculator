@@ -150,18 +150,34 @@
     .btn-danger { color: #ff6b6b; border-color: #3a1a1a; background: #1e1010; }
     .btn-danger:hover { background: #2a1212; }
 
+    /* Secondary actions — visually lighter than the primary CSV buttons */
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      color: #999;
+      background: #1c1c1c;
+    }
+    .btn-sm:hover { background: #242424; color: #ccc; }
+
     .btn-full { flex: 1; }
 
-    /* ── Status ── */
+    /* ── Status ── floating toast so feedback is visible from anywhere on the page */
     #status {
-      margin: 12px 0 0 0;
-      padding: 10px 14px;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #aaa;
-      min-height: 20px;
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      z-index: 9999;
+      max-width: 90%;
+      padding: 12px 18px;
+      background: #262626;
+      border: 1px solid #3a3a3a;
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+      font-size: 14px;
+      color: #fff;
+      text-align: center;
+      pointer-events: none;
     }
     #status:empty { display: none; }
   </style>
@@ -186,13 +202,20 @@
         <select id="productSelect" name="productSelect"></select>
       </div>
     </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label for="pricingMode">Charge by</label>
+      <select id="pricingMode" name="pricingMode">
+        <option value="area">Measurement — price per sqft</option>
+        <option value="unit">Quantity — price per unit</option>
+      </select>
+    </div>
     <div class="row3" style="margin-bottom:10px;">
       <div class="field" style="margin-bottom:0;">
-        <label for="brokerPrice">Broker ($/sqft)</label>
+        <label id="brokerPriceLabel" for="brokerPrice">Broker ($/sqft)</label>
         <input type="number" id="brokerPrice" name="brokerPrice" step="0.01" min="0" />
       </div>
       <div class="field" style="margin-bottom:0;">
-        <label for="customerPrice">Customer ($/sqft)</label>
+        <label id="customerPriceLabel" for="customerPrice">Customer ($/sqft)</label>
         <input type="number" id="customerPrice" name="customerPrice" step="0.01" min="0" />
       </div>
       <div class="field" style="margin-bottom:0;">
@@ -223,13 +246,20 @@
       <label for="newProductInput">Product name</label>
       <input type="text" id="newProductInput" name="newProductInput" placeholder="Enter product name" />
     </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label for="newPricingMode">Charge by</label>
+      <select id="newPricingMode" name="newPricingMode">
+        <option value="area">Measurement — price per sqft</option>
+        <option value="unit">Quantity — price per unit</option>
+      </select>
+    </div>
     <div class="row3" style="margin-bottom:10px;">
       <div class="field" style="margin-bottom:0;">
-        <label for="newBrokerPrice">Broker</label>
+        <label id="newBrokerPriceLabel" for="newBrokerPrice">Broker</label>
         <input type="number" id="newBrokerPrice" name="newBrokerPrice" value="1" step="0.01" min="0" />
       </div>
       <div class="field" style="margin-bottom:0;">
-        <label for="newCustomerPrice">Customer</label>
+        <label id="newCustomerPriceLabel" for="newCustomerPrice">Customer</label>
         <input type="number" id="newCustomerPrice" name="newCustomerPrice" value="5" step="0.01" min="0" />
       </div>
       <div class="field" style="margin-bottom:0;">
@@ -290,16 +320,31 @@
   <div class="section-label">📦 Data</div>
   <div class="card">
     <div style="font-size:13px;color:#666;margin-bottom:12px;">
-      Back up your custom prices or restore them on another device.
+      Load your prices from a spreadsheet saved as CSV. Columns:
+      <strong>Category, Product, Broker, Customer, Other, Mode</strong>.
+      Blank cells keep the current value, so this updates and adds without
+      wiping anything.
     </div>
     <div class="btn-row" style="margin-top:0;">
-      <button id="exportPricesBtn" class="btn-full">⬆️ Export prices JSON</button>
-      <button id="importPricesBtn" class="btn-full">⬇️ Import prices JSON</button>
+      <button id="downloadCsvTemplateBtn" class="btn-full">📄 Download CSV template</button>
+      <button id="importCsvBtn" class="btn-full">📊 Import prices CSV</button>
+    </div>
+
+    <div style="margin-top:18px;border-top:1px solid #2a2a2a;padding-top:12px;">
+      <div style="font-size:12px;color:#555;margin-bottom:8px;">
+        Full backup — JSON replaces every price at once.
+      </div>
+      <div class="btn-row" style="margin-top:0;">
+        <button id="exportPricesBtn" class="btn-sm btn-full">⬆️ Export JSON</button>
+        <button id="importPricesBtn" class="btn-sm btn-full">⬇️ Import JSON</button>
+      </div>
     </div>
   </div>
 
   <!-- File input at body level — display:none blocks click on older Android WebViews -->
   <input type="file" id="importPricesFile" accept=".json,application/json"
+    style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;" />
+  <input type="file" id="importCsvFile" accept=".csv,text/csv,text/plain"
     style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;" />
 
   <div id="status"></div>

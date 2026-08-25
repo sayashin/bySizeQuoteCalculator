@@ -14,6 +14,8 @@ let appSettings = {};
 const PRICES_KEY = 'prices_data';
 const ESTIMATES_KEY = 'estimates';
 const SETTINGS_KEY = 'app_settings';
+// Written by estimates.html when the user taps "Edit"; consumed once here on boot.
+const CART_HANDOFF_KEY = 'cart_handoff';
 
 const DEFAULT_SETTINGS = {
   taxRate: 0,
@@ -113,6 +115,49 @@ function populateProducts() {
   updatePriceDisplay();
 }
 
+// ---------- Pricing mode (area vs unit) ----------
+// A product priced per unit carries mode: 'unit' inside its price object.
+// Anything without the field is priced per area, exactly as before.
+function getProductMode(category, product) {
+  return prices?.[category]?.[product]?.mode === 'unit' ? 'unit' : 'area';
+}
+
+function currentMode() {
+  return getProductMode(
+    document.getElementById('categorySelect')?.value,
+    document.getElementById('productSelect')?.value
+  );
+}
+
+// Unit label used in prices: "sqft"/"sqm" for area products, "unit" for unit products.
+function priceUnitLabel(mode) {
+  return (mode || currentMode()) === 'unit' ? 'unit' : areaUnit();
+}
+
+// Show/hide the size inputs and the High Quality toggle depending on the mode.
+// Quantity stays visible in both modes.
+function applyModeUI() {
+  const unitMode = currentMode() === 'unit';
+
+  const sizeFields = document.getElementById('sizeFields');
+  if (sizeFields) sizeFields.style.display = unitMode ? 'none' : '';
+
+  const hqRow = document.getElementById('hqRow');
+  if (hqRow) hqRow.style.display = unitMode ? 'none' : '';
+
+  if (unitMode) {
+    const hq = document.getElementById('highQuality');
+    if (hq) hq.checked = false;
+  }
+
+  const sizeCardTitle = document.getElementById('sizeCardTitle');
+  if (sizeCardTitle) {
+    sizeCardTitle.textContent = unitMode ? '🔢 Quantity' : '📐 Size & Quantity';
+  }
+
+  applyUnitLabels();
+}
+
 function updatePriceDisplay() {
   const category = document.getElementById('categorySelect')?.value;
   const product = document.getElementById('productSelect')?.value;
@@ -122,18 +167,31 @@ function updatePriceDisplay() {
   const el = document.getElementById('pricePerSqft');
   if (!el) return;
 
-  el.textContent = price ? `${cur(price)} per ${areaUnit()}` : '';
+  el.textContent = price ? `${cur(price)} per ${priceUnitLabel()}` : '';
 }
 
 function calculatePrice() {
   const item = computeCurrentItem();
   if (!item) return;
 
+  const unitLabel = priceUnitLabel(item.mode);
+
   const priceEl = document.getElementById('pricePerSqft');
-  if (priceEl) priceEl.textContent = `${cur(item.pricePerSqft)} per ${areaUnit()}`;
+  if (priceEl) priceEl.textContent = `${cur(item.pricePerSqft)} per ${unitLabel}`;
 
   const resultEl = document.getElementById('result');
   if (!resultEl) return;
+
+  if (item.mode === 'unit') {
+    resultEl.innerHTML = `
+      <div style="font-size: 18px; margin-top: 15px; line-height: 1.6;">
+        Price per Unit: ${cur(item.unitPrice)}<br>
+        Quantity: ${item.quantity}<br>
+        <strong style="font-size: 20px;">Total: ${cur(item.total)}</strong>
+      </div>
+    `;
+    return;
+  }
 
   resultEl.innerHTML = `
     <div style="font-size: 18px; margin-top: 15px; line-height: 1.6;">
@@ -148,18 +206,10 @@ function calculatePrice() {
 }
 
 function computeCurrentItem() {
-  const { widthFt, heightFt, area } = getDimensions();
-
-  if (widthFt <= 0 || heightFt <= 0) {
-    const resultEl = document.getElementById('result');
-    if (resultEl) resultEl.textContent = '⚠️ Enter valid dimensions.';
-    return null;
-  }
-
   const category = document.getElementById('categorySelect')?.value;
   const product = document.getElementById('productSelect')?.value;
   const customerType = document.getElementById('customerType')?.value;
-  const highQuality = Boolean(document.getElementById('highQuality')?.checked);
+  const mode = getProductMode(category, product);
 
   const priceData = prices?.[category]?.[product];
   if (!priceData || priceData[customerType] == null) {
@@ -168,13 +218,44 @@ function computeCurrentItem() {
     return null;
   }
 
+  const quantity = parseInt(document.getElementById('quantity')?.value, 10) || 1;
+
+  // ---- Priced per unit: no dimensions, no HQ surcharge, no minimum charge ----
+  if (mode === 'unit') {
+    let pricePerUnit = parseFloat(document.getElementById('customPrice')?.value);
+    if (Number.isNaN(pricePerUnit)) pricePerUnit = priceData[customerType];
+
+    return {
+      mode: 'unit',
+      category,
+      product,
+      customerType,
+      pricePerSqft: pricePerUnit, // price per unit; kept under the same key for the existing UI
+      quantity,
+      area: 0,
+      unitPrice: pricePerUnit,
+      total: pricePerUnit * quantity,
+      minChargeApplied: false,
+    };
+  }
+
+  // ---- Priced per area (unchanged behaviour) ----
+  const { widthFt, heightFt, area } = getDimensions();
+
+  if (widthFt <= 0 || heightFt <= 0) {
+    const resultEl = document.getElementById('result');
+    if (resultEl) resultEl.textContent = '⚠️ Enter valid dimensions.';
+    return null;
+  }
+
+  const highQuality = Boolean(document.getElementById('highQuality')?.checked);
+
   let pricePerSqft = parseFloat(document.getElementById('customPrice')?.value);
   if (Number.isNaN(pricePerSqft)) {
     pricePerSqft = priceData[customerType];
     if (highQuality) pricePerSqft += (appSettings.highQualitySurcharge ?? 1.0);
   }
 
-  const quantity = parseInt(document.getElementById('quantity')?.value, 10) || 1;
   let unitPrice = area * pricePerSqft;
 
   // Apply minimum charge per item
@@ -186,6 +267,7 @@ function computeCurrentItem() {
   const total = unitPrice * quantity;
 
   return {
+    mode: 'area',
     category,
     product,
     customerType,
@@ -208,15 +290,22 @@ function addToCart() {
   const item = computeCurrentItem();
   if (!item) return;
 
-  cart.push({
+  const entry = {
     id: Date.now() + Math.random(),
     name: `${item.product} (${item.category})`,
     qty: item.quantity,
     unitPrice: item.unitPrice,
     subtotal: item.total,
-    widthFt: item.widthFt,
-    heightFt: item.heightFt,
-  });
+    mode: item.mode,
+  };
+
+  // Unit-priced items have no dimensions to record.
+  if (item.mode !== 'unit') {
+    entry.widthFt = item.widthFt;
+    entry.heightFt = item.heightFt;
+  }
+
+  cart.push(entry);
 
   updateCartDisplay();
 }
@@ -227,10 +316,7 @@ function updateCartDisplay() {
 
   body.innerHTML = '';
   cart.forEach((it, idx) => {
-    const sizeLabel =
-      typeof it.widthFt === 'number' && typeof it.heightFt === 'number'
-        ? formatItemSize(it)
-        : '—';
+    const sizeLabel = cartItemSizeLabel(it);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -285,6 +371,73 @@ function updateCartTotals() {
   `;
 }
 
+// If the user tapped "Edit" on a saved estimate, restore its lines, client name
+// and discount into the cart. Saving afterwards creates a NEW estimate, so the
+// original stays untouched in the list.
+function consumeCartHandoff() {
+  let payload = null;
+  try {
+    const raw = localStorage.getItem(CART_HANDOFF_KEY);
+    if (raw) payload = JSON.parse(raw);
+  } catch (err) {
+    console.warn('Could not read the estimate being edited:', err);
+  }
+  // Consume it either way, so a bad payload can't wedge every future load.
+  localStorage.removeItem(CART_HANDOFF_KEY);
+
+  if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) return;
+
+  // Re-id the lines so removing one can never hit a duplicate id.
+  cart = payload.items.map((it, i) => ({ ...it, id: Date.now() + i }));
+
+  const clientEl = document.getElementById('clientName');
+  if (clientEl && payload.clientName && payload.clientName !== 'Untitled') {
+    clientEl.value = payload.clientName;
+  }
+
+  const discountEl = document.getElementById('discountPercent');
+  if (discountEl && payload.discountPercent != null) {
+    discountEl.value = payload.discountPercent;
+  }
+
+  updateCartDisplay();
+  showEditingBanner(payload.clientName || 'estimate');
+}
+
+// Makes it obvious the cart was pre-filled from a saved estimate.
+function showEditingBanner(name) {
+  if (document.getElementById('editingBanner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'editingBanner';
+  bar.style.cssText =
+    'background:#1e2a1e;border:1px solid #2f4a2f;color:#bfe3bf;border-radius:10px;' +
+    'padding:10px 14px;margin-bottom:12px;font-size:13px;display:flex;' +
+    'align-items:center;justify-content:space-between;gap:10px;';
+
+  const text = document.createElement('span');
+  text.textContent = `\u270f\ufe0f Editing a copy of "${name}" \u2014 saving creates a new estimate`;
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = 'Discard';
+  close.style.cssText =
+    'background:#222;border:1px solid #3a3a3a;color:#ccc;border-radius:8px;' +
+    'padding:5px 10px;font-size:12px;cursor:pointer;flex-shrink:0;';
+  close.addEventListener('click', () => {
+    clearCart();
+    const c = document.getElementById('clientName');
+    if (c) c.value = '';
+    const d = document.getElementById('discountPercent');
+    if (d) d.value = '0';
+    bar.remove();
+  });
+
+  bar.append(text, close);
+  const host = document.querySelector('.nav-bar');
+  if (host && host.parentNode) host.parentNode.insertBefore(bar, host.nextSibling);
+  else document.body.prepend(bar);
+}
+
 function clearCart() {
   cart = [];
   updateCartDisplay();
@@ -307,8 +460,14 @@ function clearForm() {
 }
 
 function bindUI() {
-  document.getElementById('categorySelect')?.addEventListener('change', populateProducts);
-  document.getElementById('productSelect')?.addEventListener('change', updatePriceDisplay);
+  document.getElementById('categorySelect')?.addEventListener('change', () => {
+    populateProducts();
+    applyModeUI();
+  });
+  document.getElementById('productSelect')?.addEventListener('change', () => {
+    updatePriceDisplay();
+    applyModeUI();
+  });
   document.getElementById('customerType')?.addEventListener('change', updatePriceDisplay);
   document.getElementById('calculateBtn')?.addEventListener('click', calculatePrice);
 
@@ -360,9 +519,9 @@ function applyUnitLabels() {
   const hqUnit = document.getElementById('hqSurchargeUnit');
   if (hqUnit) hqUnit.textContent = `/${areaUnit()}`;
 
-  // Custom price label
+  // Custom price label — follows the selected product's pricing mode
   const cpLabel = document.getElementById('customPriceLabel');
-  if (cpLabel) cpLabel.textContent = `Custom Price per ${areaUnit()} (optional):`;
+  if (cpLabel) cpLabel.textContent = `Custom Price per ${priceUnitLabel()} (optional):`;
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -371,6 +530,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindUI();
   applyOtherLabel();
   applyUnitLabels();
+  applyModeUI();
+  consumeCartHandoff();
 });
 
 async function exportCart({ mode = 'save' } = {}) {
@@ -543,10 +704,7 @@ function buildEstimateNode({ clientName, items, subtotal, discount, discountAmou
 
   const tbody = document.createElement('tbody');
   items.forEach((it) => {
-    const sizeLabel =
-      typeof it.widthFt === 'number' && typeof it.heightFt === 'number'
-        ? formatItemSize(it)
-        : '—';
+    const sizeLabel = cartItemSizeLabel(it);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -653,6 +811,15 @@ function getDimensions() {
   const heightFt = hFt + hIn / 12;
   return { widthFt, heightFt, area: widthFt * heightFt };
 }
+// Cart/PDF/estimate line label: dimensions for area items, "Each" for unit items.
+function cartItemSizeLabel(it) {
+  if (it && it.mode === 'unit') return 'Each';
+  if (typeof it?.widthFt === 'number' && typeof it?.heightFt === 'number') {
+    return formatItemSize(it);
+  }
+  return '—';
+}
+
 function formatItemSize(item) {
   if (isMetric()) {
     // widthFt/heightFt stored as meters when metric

@@ -20,6 +20,15 @@ function estCur(amount) {
 function estAreaUnit() {
   return getEstimatesSettings().unitSystem === 'metric' ? 'sqm' : 'sqft';
 }
+// Dimensions for area-priced items, "Each" for unit-priced ones.
+function estItemSizeLabel(it) {
+  if (it && it.mode === 'unit') return 'Each';
+  if (typeof it?.widthFt === 'number' && typeof it?.heightFt === 'number') {
+    return estFormatItemSize(it);
+  }
+  return '—';
+}
+
 function estFormatItemSize(item) {
   const metric = getEstimatesSettings().unitSystem === 'metric';
   const formatM = v => {
@@ -67,10 +76,7 @@ function displayEstimates() {
   estimates.forEach((est, idx) => {
     const itemsHtml = (est.items || [])
       .map((it) => {
-        const sizeLabel =
-          typeof it.widthFt === 'number' && typeof it.heightFt === 'number'
-            ? estFormatItemSize(it)
-            : '—';
+        const sizeLabel = estItemSizeLabel(it);
         return `<div class="estimate-item-row"><span>${escapeHtml(it.name)} · ${escapeHtml(sizeLabel)} × ${Number(it.qty || 0)}</span><span>${estCur(it.subtotal || 0)}</span></div>`;
       })
       .join('');
@@ -108,7 +114,8 @@ function displayEstimates() {
       </div>
 
       <div class="button-group">
-        <button class="savepdf-btn btn-primary" data-idx="${idx}">💾 Save PDF</button>
+        <button class="edit-btn btn-primary" data-idx="${idx}">✏️ Edit</button>
+        <button class="savepdf-btn" data-idx="${idx}">💾 Save PDF</button>
         <button class="sharepdf-btn" data-idx="${idx}">📤 Share PDF</button>
         <button class="delete-btn btn-danger" data-idx="${idx}">🗑️ Delete</button>
       </div>
@@ -122,6 +129,25 @@ function displayEstimates() {
       e.preventDefault();
       const idx = parseInt(e.currentTarget.getAttribute('data-idx'), 10);
       if (!Number.isNaN(idx)) deleteEstimate(idx);
+    });
+  });
+
+  document.querySelectorAll('.edit-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const idx = Number(e.currentTarget.dataset.idx);
+      const est = loadEstimates()[idx];
+      if (!est) return;
+      try {
+        localStorage.setItem('cart_handoff', JSON.stringify({
+          clientName: est.clientName || '',
+          items: est.items || [],
+          discountPercent: est.discountPercent || 0,
+        }));
+      } catch (err) {
+        alert('Could not open this estimate for editing.');
+        return;
+      }
+      window.location.href = 'index.html';
     });
   });
 
@@ -308,10 +334,7 @@ function buildEstimateNode({ clientName, items, subtotal, discount, discountAmou
 
   const tbody = document.createElement('tbody');
   items.forEach((it) => {
-    const sizeLabel =
-      typeof it.widthFt === 'number' && typeof it.heightFt === 'number'
-        ? estFormatItemSize(it)
-        : '—';
+    const sizeLabel = estItemSizeLabel(it);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `

@@ -1,7 +1,7 @@
 // service-worker.js
 // Offline-first for app assets, network-first for navigation HTML.
 
-const CACHE_NAME = 'price-calc-v3';
+const CACHE_NAME = 'price-calc-v4'; // bump on every release so updated JS/CSS is picked up
 
 const CORE_ASSETS = [
   '/',              // important: works when hosted at domain root
