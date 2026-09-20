@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/31403410/README.md)
 # By Size Quote Calculator
 
 A quoting tool for signage brokers. Enter a size or a quantity, pick a product
@@ -18,13 +17,22 @@ The same codebase runs in three places:
 ## Features
 
 - **Two pricing modes.** Products are priced either by area (per sqft/sqm) or
-  by quantity (per unit). The mode is set per product; unit-priced products
-  hide the size fields, and neither the high-quality surcharge nor the minimum
-  charge applies to them.
-- **CSV price import.** Load prices from a spreadsheet. Blank cells keep the
-  current value, so an import updates and adds without wiping anything.
+  by quantity (per unit). The mode is set per product or per variant;
+  unit-priced items hide the size fields, and neither the high-quality
+  surcharge nor the minimum charge applies to them.
+- **Variants.** A product can hold named variants — sizes, finishes, quantity
+  tiers — each with its own prices and its own pricing mode. Products without
+  variants behave exactly as before and the variant dropdown stays hidden, so
+  simple catalogs never pay for the feature.
+- **CSV price import,** in two modes. *Merge* adds and updates while blank
+  cells keep the current value; *Replace all* treats the file as the whole
+  catalog and deletes what isn't in it, after a confirmation that quotes the
+  real number of entries about to go.
 - **Editable estimates.** A saved estimate can be loaded back into the cart to
   add or remove lines. Saving creates a new estimate; the original is kept.
+- **Your company on every quote.** Name, phone, email, address and a logo are
+  printed as a header on exported PDFs. All optional — with nothing filled in,
+  quotes look exactly as they did before.
 - **Customer types.** Broker, customer, and a third configurable type.
 - **PDF export** of any estimate, plus JSON backup and restore of all prices.
 
@@ -50,6 +58,21 @@ main.js         Electron entry point
 preload.js      Electron IPC bridge
 server.js       Small local server for testing in a browser
 ```
+
+### How prices are stored
+
+A product is either a leaf holding its own prices, or a container of named
+variants:
+
+```json
+{ "Banners":        { "Vinyl 13oz": { "broker": 2.42, "customer": 5, "church": 3.5 } },
+  "Business cards": { "Regular":    { "variants": {
+                        "500":   { "broker": 0, "customer": 85, "church": 0, "mode": "unit" },
+                        "1,000": { "broker": 0, "customer": 95, "church": 0, "mode": "unit" } } } } }
+```
+
+The `variants` key is the only discriminator, so data written before variants
+existed keeps working untouched and needs no migration step.
 
 > **Note on `web/` vs `docs/`:** GitHub Pages only publishes from the repo root
 > or from `docs/`, so on GitHub this folder is named `docs/`. Locally it is
@@ -150,18 +173,26 @@ are published as GitHub Releases instead.
 Columns are matched by header name, so their order doesn't matter, and English
 or Spanish headers both work.
 
-| Category | Product | Broker | Customer | Other | Mode |
-| --- | --- | --- | --- | --- | --- |
-| Banners | Vinyl 13oz | 2.42 | 5.00 | 3.50 | area |
-| Banners | Mesh Banner | 3.10 | 6.50 | 4.25 | |
-| | Fabric Banner | 4.00 | 7.25 | 5.00 | |
-| Accessories | Grommet | 0.50 | 1.00 | 0.75 | unit |
+| Category | Product | Variant | Broker | Customer | Other | Mode |
+| --- | --- | --- | --- | --- | --- | --- |
+| Banners | Vinyl 13oz | | 2.42 | 5.00 | 3.50 | area |
+| Banners | Mesh Banner | | 3.10 | 6.50 | 4.25 | |
+| | Fabric Banner | | 4.00 | 7.25 | 5.00 | |
+| Business cards | Regular | 500 | | 85.00 | | unit |
+| | Regular | 1,000 | | 95.00 | | unit |
+| Accessories | Grommet | | 0.50 | 1.00 | 0.75 | unit |
 
 - **Category** — blank repeats the row above, so you can group without repeating.
 - **Product** — required; the row is skipped without it.
-- **Prices** — blank keeps the current value. A new product with blank prices
-  is created at 0 and reported back to you.
+- **Variant** — optional. Blank means the product carries a single price.
+  Filled in, the row becomes one variant of that product, and several rows can
+  share a product name to build up its variants.
+- **Prices** — blank keeps the current value. A new entry with blank prices is
+  created at 0 and reported back to you.
 - **Mode** — `unit` for per-item pricing; blank or anything else means per area.
+
+A file without a `Variant` column still imports; every row is treated as a
+plain product, exactly as older versions behaved.
 
 Comma, semicolon and tab separators are all detected automatically, as are
 `2.42`, `$2.42`, `1,234.56` and `2,42`. Save from Excel as **CSV UTF-8** so
@@ -169,3 +200,19 @@ accented characters survive.
 
 The Settings screen has a **Download CSV template** button that exports your
 current prices in this exact format — the easiest place to start.
+
+### Merge or replace
+
+The **When importing** selector decides what an import does to entries that
+are *not* in the file:
+
+- **Merge** (default) leaves them alone. Use it to add products or update a
+  few prices from a partial sheet.
+- **Replace all** deletes them, so the file becomes the entire catalog. Use it
+  when you maintain the spreadsheet as your source of truth and have removed
+  products from it. A confirmation shows how many entries exist, how many the
+  file has, and how many will be deleted before anything happens; if the file
+  turns out to be unreadable, nothing is touched.
+
+Merge stays the default on purpose: a hand-written three-row CSV meant to add
+products would otherwise wipe everything else.
