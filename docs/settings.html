@@ -202,6 +202,10 @@
         <select id="productSelect" name="productSelect"></select>
       </div>
     </div>
+    <div class="field" id="variantField" style="display:none;margin-bottom:10px;">
+      <label for="variantSelect">Variant</label>
+      <select id="variantSelect" name="variantSelect"></select>
+    </div>
     <div class="field" style="margin-bottom:10px;">
       <label for="pricingMode">Charge by</label>
       <select id="pricingMode" name="pricingMode">
@@ -225,6 +229,7 @@
     </div>
     <div class="btn-row" style="margin-top:4px;">
       <button id="saveBtn" class="btn-primary">💾 Save price</button>
+      <button id="deleteVariantBtn" class="btn-danger" style="display:none;">🗑️ Delete variant</button>
       <button id="deleteProductBtn" class="btn-danger">🗑️ Delete product</button>
     </div>
   </div>
@@ -242,9 +247,19 @@
         <input type="text" id="newCategoryInput" name="newCategoryInput" placeholder="Type to create" />
       </div>
     </div>
-    <div class="field">
-      <label for="newProductInput">Product name</label>
-      <input type="text" id="newProductInput" name="newProductInput" placeholder="Enter product name" />
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="newProductInput">Product name</label>
+        <input type="text" id="newProductInput" name="newProductInput" placeholder="Enter product name" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="newVariantInput">Variant (optional)</label>
+        <input type="text" id="newVariantInput" name="newVariantInput" placeholder="e.g. 500, 4x6" />
+      </div>
+    </div>
+    <div class="hint" style="margin-top:0;">
+      Leave Variant empty for a product with a single price. Use it to group
+      sizes, finishes or quantity tiers under one product.
     </div>
     <div class="field" style="margin-bottom:10px;">
       <label for="newPricingMode">Charge by</label>
@@ -269,6 +284,48 @@
     </div>
     <div class="btn-row" style="margin-top:4px;">
       <button id="confirmAddProductBtn" class="btn-primary">➕ Add product</button>
+    </div>
+  </div>
+
+  <!-- Company -->
+  <div class="section-label">🏢 Your company</div>
+  <div class="card">
+    <div style="font-size:13px;color:#666;margin-bottom:12px;">
+      Shown at the top of every PDF estimate. All fields are optional — only
+      what you fill in gets printed.
+    </div>
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="companyNameInput">Company name</label>
+        <input type="text" id="companyNameInput" name="companyNameInput" placeholder="e.g. Acme Signs" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="companyPhoneInput">Phone</label>
+        <input type="text" id="companyPhoneInput" name="companyPhoneInput" placeholder="e.g. (555) 123-4567" />
+      </div>
+    </div>
+    <div class="row2" style="margin-bottom:10px;">
+      <div class="field" style="margin-bottom:0;">
+        <label for="companyEmailInput">Email</label>
+        <input type="text" id="companyEmailInput" name="companyEmailInput" placeholder="e.g. sales@acme.com" />
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="companyAddressInput">Address</label>
+        <input type="text" id="companyAddressInput" name="companyAddressInput" placeholder="e.g. 12 Main St, LA" />
+      </div>
+    </div>
+
+    <div class="field" style="margin-bottom:0;">
+      <label>Logo</label>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <img id="logoPreview" alt="Logo preview" style="display:none;max-height:56px;max-width:160px;
+             background:#fff;border:1px solid #333;border-radius:8px;padding:4px;" />
+        <button id="chooseLogoBtn" type="button">🖼️ Choose image</button>
+        <button id="removeLogoBtn" type="button" class="btn-danger" style="display:none;">Remove</button>
+      </div>
+      <div class="hint" style="margin-top:8px;margin-bottom:0;">
+        Resized automatically before saving. Press "Save settings" below to keep it.
+      </div>
     </div>
   </div>
 
@@ -321,9 +378,16 @@
   <div class="card">
     <div style="font-size:13px;color:#666;margin-bottom:12px;">
       Load your prices from a spreadsheet saved as CSV. Columns:
-      <strong>Category, Product, Broker, Customer, Other, Mode</strong>.
+      <strong>Category, Product, Variant, Broker, Customer, Other, Mode</strong>.
       Blank cells keep the current value, so this updates and adds without
       wiping anything.
+    </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label for="csvImportMode">When importing</label>
+      <select id="csvImportMode" name="csvImportMode">
+        <option value="merge">Merge — add and update, delete nothing</option>
+        <option value="replace">Replace all — the file becomes the whole list</option>
+      </select>
     </div>
     <div class="btn-row" style="margin-top:0;">
       <button id="downloadCsvTemplateBtn" class="btn-full">📄 Download CSV template</button>
@@ -345,6 +409,8 @@
   <input type="file" id="importPricesFile" accept=".json,application/json"
     style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;" />
   <input type="file" id="importCsvFile" accept=".csv,text/csv,text/plain"
+    style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;" />
+  <input type="file" id="logoFile" accept="image/*"
     style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;" />
 
   <div id="status"></div>

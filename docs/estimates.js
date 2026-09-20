@@ -3,6 +3,7 @@
 // Adds: Save PDF + Share PDF (Capacitor-native + Web fallback)
 
 const ESTIMATES_KEY = 'estimates';
+const SETTINGS_KEY = 'app_settings';
 
 function getEstimatesSettings() {
   try {
@@ -294,6 +295,56 @@ async function generateEstimatePdf(est, { mode = 'save' } = {}) {
   }
 }
 
+
+// Builds the company header for the top of a PDF estimate. Returns null when
+// nothing has been filled in, so quotes stay exactly as they were before.
+function buildCompanyHeader() {
+  let co = {};
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    co = s.company || {};
+  } catch { co = {}; }
+
+  const lines = [co.address, co.phone, co.email].filter(Boolean);
+  if (!co.name && !co.logo && lines.length === 0) return null;
+
+  const bar = document.createElement('div');
+  bar.style.display = 'flex';
+  bar.style.alignItems = 'center';
+  bar.style.justifyContent = 'space-between';
+  bar.style.gap = '16px';
+  bar.style.marginBottom = '12px';
+
+  if (co.logo) {
+    const img = document.createElement('img');
+    img.src = co.logo;               // inline data URI, so html2canvas needs no network
+    img.style.maxHeight = '60px';
+    img.style.maxWidth = '180px';
+    bar.appendChild(img);
+  }
+
+  const info = document.createElement('div');
+  info.style.textAlign = co.logo ? 'right' : 'left';
+  info.style.fontSize = '12px';
+  info.style.lineHeight = '1.5';
+
+  if (co.name) {
+    const n = document.createElement('div');
+    n.textContent = co.name;
+    n.style.fontSize = '16px';
+    n.style.fontWeight = 'bold';
+    info.appendChild(n);
+  }
+  lines.forEach(text => {
+    const d = document.createElement('div');
+    d.textContent = text;
+    info.appendChild(d);
+  });
+
+  bar.appendChild(info);
+  return bar;
+}
+
 function buildEstimateNode({ clientName, items, subtotal, discount, discountAmount, taxRate, taxAmount, total, createdAt }) {
   const wrap = document.createElement('div');
   wrap.style.width = '210mm';
@@ -301,6 +352,9 @@ function buildEstimateNode({ clientName, items, subtotal, discount, discountAmou
   wrap.style.background = '#fff';
   wrap.style.color = '#111';
   wrap.style.fontFamily = 'Arial, sans-serif';
+
+  const companyHeader = buildCompanyHeader();
+  if (companyHeader) wrap.appendChild(companyHeader);
 
   const title = document.createElement('h2');
   title.textContent = `Estimate for ${clientName}`;

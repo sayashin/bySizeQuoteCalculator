@@ -115,17 +115,76 @@ function populateProducts() {
   updatePriceDisplay();
 }
 
+// ---------- Variants ----------
+// A product is stored either as a leaf (its own prices, exactly as before) or
+// as a container of named variants:
+//   leaf     -> { broker, customer, church, mode? }
+//   variants -> { variants: { "500": { broker, ... }, "1,000": { ... } } }
+// The `variants` key is the only discriminator, so data written by older
+// versions keeps working untouched and needs no migration.
+function hasVariants(entry) {
+  return !!(entry && entry.variants && typeof entry.variants === 'object'
+            && Object.keys(entry.variants).length > 0);
+}
+
+function variantNames(category, product) {
+  const entry = prices?.[category]?.[product];
+  return hasVariants(entry) ? Object.keys(entry.variants) : [];
+}
+
+// Resolves the object that actually holds the prices, whichever shape is used.
+function getPriceEntry(category, product, variant) {
+  const entry = prices?.[category]?.[product];
+  if (!entry) return null;
+  if (!hasVariants(entry)) return entry;
+  if (variant && entry.variants[variant]) return entry.variants[variant];
+  // Fall back to the first variant so a stale selection can't yield null.
+  const first = Object.keys(entry.variants)[0];
+  return first ? entry.variants[first] : null;
+}
+
+function currentVariant() {
+  const sel = document.getElementById('variantSelect');
+  return sel && sel.value ? sel.value : null;
+}
+
+// Fills the variant dropdown and shows it only when the product has variants.
+function populateVariants() {
+  const category = document.getElementById('categorySelect')?.value;
+  const product = document.getElementById('productSelect')?.value;
+  const sel = document.getElementById('variantSelect');
+  const field = document.getElementById('variantField');
+  if (!sel) return;
+
+  const names = variantNames(category, product);
+  const previous = sel.value;
+  sel.innerHTML = '';
+  names.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+
+  // Keep the selection when switching between products that share a variant
+  // name (e.g. the same quantity tiers), so the user isn't reset to the top.
+  if (previous && names.includes(previous)) sel.value = previous;
+
+  if (field) field.style.display = names.length ? '' : 'none';
+}
+
 // ---------- Pricing mode (area vs unit) ----------
 // A product priced per unit carries mode: 'unit' inside its price object.
 // Anything without the field is priced per area, exactly as before.
-function getProductMode(category, product) {
-  return prices?.[category]?.[product]?.mode === 'unit' ? 'unit' : 'area';
+function getProductMode(category, product, variant) {
+  return getPriceEntry(category, product, variant)?.mode === 'unit' ? 'unit' : 'area';
 }
 
 function currentMode() {
   return getProductMode(
     document.getElementById('categorySelect')?.value,
-    document.getElementById('productSelect')?.value
+    document.getElementById('productSelect')?.value,
+    currentVariant()
   );
 }
 
@@ -163,7 +222,7 @@ function updatePriceDisplay() {
   const product = document.getElementById('productSelect')?.value;
   const customer = document.getElementById('customerType')?.value;
 
-  const price = prices[category]?.[product]?.[customer];
+  const price = getPriceEntry(category, product, currentVariant())?.[customer];
   const el = document.getElementById('pricePerSqft');
   if (!el) return;
 
@@ -209,9 +268,10 @@ function computeCurrentItem() {
   const category = document.getElementById('categorySelect')?.value;
   const product = document.getElementById('productSelect')?.value;
   const customerType = document.getElementById('customerType')?.value;
-  const mode = getProductMode(category, product);
+  const variant = currentVariant();
+  const mode = getProductMode(category, product, variant);
 
-  const priceData = prices?.[category]?.[product];
+  const priceData = getPriceEntry(category, product, variant);
   if (!priceData || priceData[customerType] == null) {
     const resultEl = document.getElementById('result');
     if (resultEl) resultEl.textContent = '⚠️ Price not found.';
@@ -229,6 +289,7 @@ function computeCurrentItem() {
       mode: 'unit',
       category,
       product,
+      variant,
       customerType,
       pricePerSqft: pricePerUnit, // price per unit; kept under the same key for the existing UI
       quantity,
@@ -270,6 +331,7 @@ function computeCurrentItem() {
     mode: 'area',
     category,
     product,
+    variant,
     customerType,
     pricePerSqft,
     quantity,
@@ -292,7 +354,9 @@ function addToCart() {
 
   const entry = {
     id: Date.now() + Math.random(),
-    name: `${item.product} (${item.category})`,
+    name: item.variant
+      ? `${item.product} — ${item.variant} (${item.category})`
+      : `${item.product} (${item.category})`,
     qty: item.quantity,
     unitPrice: item.unitPrice,
     subtotal: item.total,
@@ -462,9 +526,16 @@ function clearForm() {
 function bindUI() {
   document.getElementById('categorySelect')?.addEventListener('change', () => {
     populateProducts();
+    populateVariants();
+    updatePriceDisplay();
     applyModeUI();
   });
   document.getElementById('productSelect')?.addEventListener('change', () => {
+    populateVariants();
+    updatePriceDisplay();
+    applyModeUI();
+  });
+  document.getElementById('variantSelect')?.addEventListener('change', () => {
     updatePriceDisplay();
     applyModeUI();
   });
@@ -529,6 +600,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initPrices();
   bindUI();
   applyOtherLabel();
+  populateVariants();
   applyUnitLabels();
   applyModeUI();
   consumeCartHandoff();
@@ -664,6 +736,56 @@ async function exportCart({ mode = 'save' } = {}) {
   }
 }
 
+
+// Builds the company header for the top of a PDF estimate. Returns null when
+// nothing has been filled in, so quotes stay exactly as they were before.
+function buildCompanyHeader() {
+  let co = {};
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    co = s.company || {};
+  } catch { co = {}; }
+
+  const lines = [co.address, co.phone, co.email].filter(Boolean);
+  if (!co.name && !co.logo && lines.length === 0) return null;
+
+  const bar = document.createElement('div');
+  bar.style.display = 'flex';
+  bar.style.alignItems = 'center';
+  bar.style.justifyContent = 'space-between';
+  bar.style.gap = '16px';
+  bar.style.marginBottom = '12px';
+
+  if (co.logo) {
+    const img = document.createElement('img');
+    img.src = co.logo;               // inline data URI, so html2canvas needs no network
+    img.style.maxHeight = '60px';
+    img.style.maxWidth = '180px';
+    bar.appendChild(img);
+  }
+
+  const info = document.createElement('div');
+  info.style.textAlign = co.logo ? 'right' : 'left';
+  info.style.fontSize = '12px';
+  info.style.lineHeight = '1.5';
+
+  if (co.name) {
+    const n = document.createElement('div');
+    n.textContent = co.name;
+    n.style.fontSize = '16px';
+    n.style.fontWeight = 'bold';
+    info.appendChild(n);
+  }
+  lines.forEach(text => {
+    const d = document.createElement('div');
+    d.textContent = text;
+    info.appendChild(d);
+  });
+
+  bar.appendChild(info);
+  return bar;
+}
+
 function buildEstimateNode({ clientName, items, subtotal, discount, discountAmount, taxRate, taxAmount, total, createdAt }) {
   const wrap = document.createElement('div');
   wrap.style.width = '210mm';
@@ -671,6 +793,9 @@ function buildEstimateNode({ clientName, items, subtotal, discount, discountAmou
   wrap.style.background = '#fff';
   wrap.style.color = '#111';
   wrap.style.fontFamily = 'Arial, sans-serif';
+
+  const companyHeader = buildCompanyHeader();
+  if (companyHeader) wrap.appendChild(companyHeader);
 
   const title = document.createElement('h2');
   title.textContent = `Estimate for ${clientName}`;

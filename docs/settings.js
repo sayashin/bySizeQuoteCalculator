@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   otherLabel: 'other',
   unitSystem: 'imperial',
   currencySymbol: '$',
+  company: { name: '', phone: '', email: '', address: '', logo: '' },
 };
 
 // ── Prices helpers ────────────────────────────────────────────────────────────
@@ -71,10 +72,69 @@ function populateProducts() {
   updatePriceFields();
 }
 
+
+// ── Variants ─────────────────────────────────────────────────────────────────
+// A product is either a leaf holding its own prices, or a container of named
+// variants under a `variants` key. That key is the only discriminator, so
+// anything written by an older version keeps working with no migration.
+
+function hasVariants(entry) {
+  return !!(entry && entry.variants && typeof entry.variants === 'object'
+            && Object.keys(entry.variants).length > 0);
+}
+
+function variantNamesFor(cat, prod) {
+  const entry = prices?.[cat]?.[prod];
+  return hasVariants(entry) ? Object.keys(entry.variants) : [];
+}
+
+// The object that actually holds broker/customer/church for the current
+// selection, or null when there is nothing selected yet.
+function priceEntryFor(cat, prod, variant) {
+  const entry = prices?.[cat]?.[prod];
+  if (!entry) return null;
+  if (!hasVariants(entry)) return entry;
+  if (variant && entry.variants[variant]) return entry.variants[variant];
+  const first = Object.keys(entry.variants)[0];
+  return first ? entry.variants[first] : null;
+}
+
+function selectedVariant() {
+  const sel = document.getElementById('variantSelect');
+  return sel && sel.value ? sel.value : null;
+}
+
+// Fills the variant dropdown for the selected product and shows it only when
+// that product actually has variants.
+function populateVariants() {
+  const cat = document.getElementById('categorySelect')?.value;
+  const prod = document.getElementById('productSelect')?.value;
+  const sel = document.getElementById('variantSelect');
+  const field = document.getElementById('variantField');
+  if (!sel) return;
+
+  const names = variantNamesFor(cat, prod);
+  const previous = sel.value;
+  sel.innerHTML = '';
+  names.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    sel.appendChild(opt);
+  });
+  if (previous && names.includes(previous)) sel.value = previous;
+
+  if (field) field.style.display = names.length ? '' : 'none';
+
+  const delVariantBtn = document.getElementById('deleteVariantBtn');
+  if (delVariantBtn) delVariantBtn.style.display = names.length ? '' : 'none';
+}
+
 function updatePriceFields() {
   const cat = document.getElementById('categorySelect').value;
   const prod = document.getElementById('productSelect').value;
-  const data = cat && prod && prices[cat] && prices[cat][prod];
+  populateVariants();
+  const data = priceEntryFor(cat, prod, selectedVariant());
   document.getElementById('brokerPrice').value   = data ? (data.broker   ?? '') : '';
   document.getElementById('customerPrice').value = data ? (data.customer ?? '') : '';
   document.getElementById('churchPrice').value   = data ? (data.church   ?? '') : '';
@@ -166,6 +226,65 @@ function showStatus(msg, delay = 2500) {
 
 // ── Quote Settings helpers ────────────────────────────────────────────────────
 
+
+// ── Company details for the quote header ────────────────────────────────────
+
+// A phone photo as base64 runs to several MB, which would blow the ~5 MB
+// localStorage quota and take every other setting down with it. Everything is
+// redrawn onto a canvas at a sane width before being stored.
+const LOGO_MAX_WIDTH = 300;
+const LOGO_MAX_BYTES = 400 * 1024;
+
+function resizeLogo(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the image'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not a readable image'));
+      img.onload = () => {
+        const scale = Math.min(1, LOGO_MAX_WIDTH / img.width);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+        // PNG first so logos keep their transparency; fall back to JPEG only
+        // when the result is too heavy, which happens with photographs.
+        let out = canvas.toDataURL('image/png');
+        if (out.length > LOGO_MAX_BYTES) out = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(out);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function readCompany() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    return { ...DEFAULT_SETTINGS.company, ...(s.company || {}) };
+  } catch { return { ...DEFAULT_SETTINGS.company }; }
+}
+
+// Kept separate from the form fields so a logo upload doesn't depend on the
+// user also pressing "Save settings".
+let pendingLogo = null;
+
+function renderLogoPreview(dataUrl) {
+  const img = document.getElementById('logoPreview');
+  const removeBtn = document.getElementById('removeLogoBtn');
+  if (img) {
+    img.src = dataUrl || '';
+    img.style.display = dataUrl ? '' : 'none';
+  }
+  if (removeBtn) removeBtn.style.display = dataUrl ? '' : 'none';
+}
+
 function loadQuoteSettings() {
   try {
     const stored = localStorage.getItem(SETTINGS_KEY);
@@ -177,6 +296,15 @@ function loadQuoteSettings() {
     document.getElementById('otherLabelInput').value   = s.otherLabel || 'other';
     document.getElementById('unitSystemInput').value   = s.unitSystem || 'imperial';
     document.getElementById('currencySymbolInput').value = s.currencySymbol || '$';
+
+    const co = { ...DEFAULT_SETTINGS.company, ...(s.company || {}) };
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    setVal('companyNameInput', co.name);
+    setVal('companyPhoneInput', co.phone);
+    setVal('companyEmailInput', co.email);
+    setVal('companyAddressInput', co.address);
+    pendingLogo = co.logo || '';
+    renderLogoPreview(pendingLogo);
     applyOtherLabelToSettings(s.otherLabel || 'other');
   } catch(e) {
     console.warn('loadQuoteSettings failed:', e);
@@ -201,9 +329,23 @@ function saveQuoteSettings() {
     taxEnabled:           document.getElementById('taxEnabledInput').checked,
     otherLabel:           label,
     unitSystem:           document.getElementById('unitSystemInput').value || 'imperial',
+    company: {
+      name:    document.getElementById('companyNameInput')?.value.trim()    || '',
+      phone:   document.getElementById('companyPhoneInput')?.value.trim()   || '',
+      email:   document.getElementById('companyEmailInput')?.value.trim()   || '',
+      address: document.getElementById('companyAddressInput')?.value.trim() || '',
+      logo:    pendingLogo || '',
+    },
     currencySymbol:       document.getElementById('currencySymbolInput').value.trim() || '$',
   };
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch (err) {
+    // Almost always the storage quota, and almost always the logo. The old
+    // settings survive untouched because a failed setItem writes nothing.
+    showStatus('⚠️ Could not save — the logo may be too large. Try a smaller image.', 6000);
+    return;
+  }
   applyOtherLabelToSettings(label);
   showStatus('✅ Quote settings saved!');
 }
@@ -314,6 +456,8 @@ function matchHeaders(headerRow) {
     customer: 'customer', client: 'customer', cliente: 'customer', retail: 'customer',
     other: 'church', otro: 'church', church: 'church', nonprofit: 'church',
     mode: 'mode', modo: 'mode', type: 'mode', tipo: 'mode',
+    variant: 'variant', variante: 'variant', option: 'variant', opcion: 'variant',
+    'opción': 'variant', tier: 'variant',
   };
 
   const map = {};
@@ -326,7 +470,12 @@ function matchHeaders(headerRow) {
 
 // Merges CSV rows into `prices`. Returns a report instead of throwing so the
 // caller can show what happened without losing the good rows.
-function importPricesFromCSV(text) {
+// mode: 'merge'   — add and update, blank cells keep the current value (default)
+//       'replace' — the file becomes the whole catalog; anything absent is dropped
+// dryRun only applies to 'replace': the file is parsed and counted, then the
+// live catalog is put back untouched, so the confirmation can quote real
+// numbers before anything is destroyed.
+function importPricesFromCSV(text, mode = 'merge', dryRun = false) {
   text = String(text).replace(/^\uFEFF/, '');
 
   const firstLine = text.split(/\r?\n/, 1)[0] || '';
@@ -344,9 +493,17 @@ function importPricesFromCSV(text) {
 
   const cell = (row, key) => cols[key] === undefined ? '' : String(row[cols[key]] ?? '').trim();
 
+  // Replace mode writes into a clean object so that anything missing from the
+  // file simply never makes it across. The live catalog is only swapped once
+  // the whole file has parsed, so a bad row can't leave a half-wiped list.
+  const replacing = mode === 'replace';
+  const before = prices;
+  if (replacing) prices = {};
+
   let added = 0, updated = 0;
   const skipped = [];      // spreadsheet line numbers
   const zeroed = [];       // new products left at 0 by blank prices
+  const converted = [];    // leaf products turned into variant containers
   let lastCategory = '';
 
   for (let r = 1; r < rows.length; r++) {
@@ -360,7 +517,30 @@ function importPricesFromCSV(text) {
     lastCategory = category;
 
     if (!prices[category]) prices[category] = {};
-    const existing = prices[category][product];
+    const variant = cell(row, 'variant');
+
+    // Find the object this row's prices belong to, creating the variant
+    // container only when the row actually names a variant.
+    let existing, target;
+    const node = prices[category][product];
+
+    if (variant) {
+      if (node && !hasVariants(node)) {
+        // Product currently holds a single price. Keep it as a "Standard"
+        // variant rather than dropping it on the floor.
+        prices[category][product] = { variants: { Standard: node } };
+        converted.push(product);
+      } else if (!node) {
+        prices[category][product] = { variants: {} };
+      }
+      existing = prices[category][product].variants[variant];
+      target = (v) => { prices[category][product].variants[variant] = v; };
+    } else {
+      if (hasVariants(node)) { skipped.push(line); continue; }
+      existing = node;
+      target = (v) => { prices[category][product] = v; };
+    }
+
     const entry = existing ? { ...existing } : { broker: 0, customer: 0, church: 0 };
 
     for (const key of ['broker', 'customer', 'church']) {
@@ -373,20 +553,68 @@ function importPricesFromCSV(text) {
     if (modeCell === 'unit' || modeCell === 'unidad' || modeCell === 'cantidad') entry.mode = 'unit';
     else if (modeCell !== '') delete entry.mode;   // an explicit non-unit value means per-area
 
-    prices[category][product] = entry;
+    target(entry);
 
+    const label = variant ? `${product} — ${variant}` : product;
     if (existing) updated++; else {
       added++;
-      if (!entry.broker && !entry.customer && !entry.church) zeroed.push(product);
+      if (!entry.broker && !entry.customer && !entry.church) zeroed.push(label);
     }
   }
 
   if (!added && !updated) {
+    if (replacing) prices = before;   // never leave the user with an empty catalog
     return { ok: false, error: 'No valid rows found. Check that Category and Product are filled in.' };
   }
 
+  let removed = 0, incoming = 0;
+  if (replacing) {
+    incoming = countProducts(prices);
+    removed = countRemoved(before, prices);
+  }
+
+  if (dryRun && replacing) {
+    const existing = countProducts(before);
+    prices = before;                       // nothing was committed
+    return { ok: true, dryRun: true, added, updated, skipped, zeroed,
+             converted, removed, incoming, existing, mode };
+  }
+
   savePrices();
-  return { ok: true, added, updated, skipped, zeroed };
+  return { ok: true, added, updated, skipped, zeroed, converted, removed, mode };
+}
+
+// Counts entries that exist in `before` but not in `after`. A plain difference
+// of totals would report the NET change, which understates deletions whenever
+// the incoming file also adds products — the wrong direction to be wrong in
+// for a confirmation the user can't undo.
+function countRemoved(before, after) {
+  let gone = 0;
+  Object.entries(before || {}).forEach(([cat, products]) => {
+    Object.entries(products || {}).forEach(([prod, node]) => {
+      const now = after?.[cat]?.[prod];
+      if (hasVariants(node)) {
+        Object.keys(node.variants).forEach(v => {
+          const stillThere = now && hasVariants(now) && now.variants[v];
+          if (!stillThere) gone++;
+        });
+      } else if (!now) {
+        gone++;
+      }
+    });
+  });
+  return gone;
+}
+
+// Counts price-bearing entries, so a variant product counts once per variant.
+function countProducts(catalog) {
+  let n = 0;
+  Object.values(catalog || {}).forEach(cat => {
+    Object.values(cat || {}).forEach(node => {
+      n += hasVariants(node) ? Object.keys(node.variants).length : 1;
+    });
+  });
+  return n;
 }
 
 // A starter file matching the expected format, filled with current prices.
@@ -395,15 +623,21 @@ function buildPricesCSV() {
     const s = String(v ?? '');
     return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
-  const lines = ['Category,Product,Broker,Customer,Other,Mode'];
+  const lines = ['Category,Product,Variant,Broker,Customer,Other,Mode'];
+  const row = (cat, prod, variant, p) => lines.push([
+    esc(cat), esc(prod), esc(variant),
+    p.broker ?? 0, p.customer ?? 0, p.church ?? 0,
+    p.mode === 'unit' ? 'unit' : 'area',
+  ].join(','));
+
   Object.keys(prices).sort().forEach(cat => {
     Object.keys(prices[cat]).sort().forEach(prod => {
-      const p = prices[cat][prod] || {};
-      lines.push([
-        esc(cat), esc(prod),
-        p.broker ?? 0, p.customer ?? 0, p.church ?? 0,
-        p.mode === 'unit' ? 'unit' : 'area',
-      ].join(','));
+      const node = prices[cat][prod] || {};
+      if (hasVariants(node)) {
+        Object.keys(node.variants).forEach(v => row(cat, prod, v, node.variants[v]));
+      } else {
+        row(cat, prod, '', node);
+      }
     });
   });
   return lines.join('\r\n');
@@ -416,6 +650,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Existing price editor
   on('categorySelect', 'change', populateProducts);
   on('productSelect', 'change', updatePriceFields);
+  on('variantSelect', 'change', () => {
+    const cat  = document.getElementById('categorySelect').value;
+    const prod = document.getElementById('productSelect').value;
+    const data = priceEntryFor(cat, prod, selectedVariant());
+    document.getElementById('brokerPrice').value   = data ? (data.broker   ?? '') : '';
+    document.getElementById('customerPrice').value = data ? (data.customer ?? '') : '';
+    document.getElementById('churchPrice').value   = data ? (data.church   ?? '') : '';
+    const modeEl = document.getElementById('pricingMode');
+    if (modeEl) modeEl.value = data && data.mode === 'unit' ? 'unit' : 'area';
+    refreshPriceLabels();
+  });
 
   // Pricing mode selects
   on('pricingMode', 'change', refreshPriceLabels);
@@ -439,16 +684,51 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     // Only written when priced per unit, so area products keep their original shape.
     if (document.getElementById('pricingMode')?.value === 'unit') entry.mode = 'unit';
-    prices[cat][prod] = entry;
+
+    const variant = selectedVariant();
+    if (hasVariants(prices[cat][prod]) && variant) {
+      prices[cat][prod].variants[variant] = entry;
+      savePrices();
+      showStatus(`✅ Saved "${prod} — ${variant}"`);
+    } else {
+      prices[cat][prod] = entry;
+      savePrices();
+      showStatus('✅ Prices saved!');
+    }
+  });
+
+  on('deleteVariantBtn', 'click', () => {
+    const cat  = document.getElementById('categorySelect').value;
+    const prod = document.getElementById('productSelect').value;
+    const variant = selectedVariant();
+    if (!cat || !prod || !variant || !hasVariants(prices[cat]?.[prod])) return;
+
+    if (!confirm(`🗑️ Delete the variant "${variant}" of "${prod}"?`)) return;
+
+    delete prices[cat][prod].variants[variant];
+
+    // A product left with no variants would be unreachable, so remove it, and
+    // drop the category too if that emptied it.
+    if (Object.keys(prices[cat][prod].variants).length === 0) {
+      delete prices[cat][prod];
+      if (Object.keys(prices[cat]).length === 0) delete prices[cat];
+      showStatus(`🗑️ Deleted "${prod}" (last variant removed)`);
+    } else {
+      showStatus(`🗑️ Deleted "${prod} — ${variant}"`);
+    }
     savePrices();
-    showStatus('✅ Prices saved!');
+    loadPrices();
   });
 
   on('deleteProductBtn', 'click', () => {
     const cat  = document.getElementById('categorySelect').value;
     const prod = document.getElementById('productSelect').value;
     if (cat && prod && prices[cat]?.[prod]) {
-      if (confirm(`🗑️ Are you sure you want to delete "${prod}"?`)) {
+      const n = variantNamesFor(cat, prod).length;
+      const msg = n
+        ? `🗑️ Delete "${prod}" and all ${n} of its variants?`
+        : `🗑️ Are you sure you want to delete "${prod}"?`;
+      if (confirm(msg)) {
         delete prices[cat][prod];
         if (Object.keys(prices[cat]).length === 0) delete prices[cat];
         savePrices();
@@ -480,12 +760,41 @@ document.addEventListener('DOMContentLoaded', () => {
       church:   parseFloat(document.getElementById('newChurchPrice').value)   || 3,
     };
     if (document.getElementById('newPricingMode')?.value === 'unit') newEntry.mode = 'unit';
-    prices[category][newProd] = newEntry;
+
+    const newVariant = document.getElementById('newVariantInput')?.value.trim() || '';
+
+    if (!newVariant) {
+      // No variant given: plain product, exactly as before.
+      if (hasVariants(prices[category][newProd])) {
+        showStatus(`⚠️ "${newProd}" uses variants — enter a variant name`);
+        flagField('newVariantInput');
+        return;
+      }
+      prices[category][newProd] = newEntry;
+      showStatus(`✅ Added "${newProd}" under "${category}"`);
+    } else {
+      const existing = prices[category][newProd];
+      if (existing && !hasVariants(existing)) {
+        // The product currently holds a single price. Adding a variant has to
+        // move that price somewhere rather than silently discard it.
+        if (!confirm(
+          `"${newProd}" currently has one price with no variants.\n\n` +
+          `Adding "${newVariant}" will move the existing price into a variant ` +
+          `named "Standard". Continue?`
+        )) return;
+        prices[category][newProd] = { variants: { Standard: existing } };
+      } else if (!existing) {
+        prices[category][newProd] = { variants: {} };
+      }
+      prices[category][newProd].variants[newVariant] = newEntry;
+      showStatus(`✅ Added "${newProd} — ${newVariant}" under "${category}"`);
+    }
     savePrices();
-    showStatus(`✅ Added "${newProd}" under "${category}"`);
 
     document.getElementById('newCategoryInput').value  = '';
     document.getElementById('newProductInput').value   = '';
+    const nv = document.getElementById('newVariantInput');
+    if (nv) nv.value = '';
     document.getElementById('newBrokerPrice').value    = '1';
     document.getElementById('newCustomerPrice').value  = '5';
     document.getElementById('newChurchPrice').value    = '3';
@@ -558,6 +867,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('importPricesFile').click();
   });
 
+  on('chooseLogoBtn', 'click', () => {
+    document.getElementById('logoFile')?.click();
+  });
+
+  on('logoFile', 'change', async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      pendingLogo = await resizeLogo(file);
+      renderLogoPreview(pendingLogo);
+      showStatus('✅ Logo loaded — press "Save settings" to keep it');
+    } catch (err) {
+      showStatus(`⚠️ ${err.message}`);
+    }
+  });
+
+  on('removeLogoBtn', 'click', () => {
+    pendingLogo = '';
+    renderLogoPreview('');
+    showStatus('Logo removed — press "Save settings" to confirm');
+  });
+
   on('importCsvBtn', 'click', () => {
     document.getElementById('importCsvFile')?.click();
   });
@@ -585,9 +917,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const reader = new FileReader();
     reader.onload = (evt) => {
+      const mode = document.getElementById('csvImportMode')?.value === 'replace'
+        ? 'replace' : 'merge';
+
       let report;
       try {
-        report = importPricesFromCSV(evt.target.result);
+        if (mode === 'replace') {
+          // Count first and let the user see exactly what would be lost.
+          const preview = importPricesFromCSV(evt.target.result, 'replace', true);
+          if (!preview.ok) { showStatus(`⚠️ ${preview.error}`, 6000); return; }
+          const msg = preview.removed
+            ? `Replace the whole price list?\n\n` +
+              `You have ${preview.existing} price entries. The file has ${preview.incoming}.\n` +
+              `${preview.removed} entr${preview.removed === 1 ? 'y' : 'ies'} not in the file ` +
+              `will be DELETED.\n\nThis cannot be undone.`
+            : `Replace the whole price list with the ${preview.incoming} entries in this file?`;
+          if (!confirm(msg)) { showStatus('Import cancelled — nothing changed'); return; }
+        }
+        report = importPricesFromCSV(evt.target.result, mode);
       } catch (err) {
         showStatus(`\u26a0\ufe0f Import failed: ${err.message}`);
         return;
@@ -602,6 +949,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const shown = report.skipped.slice(0, 5).join(', ');
         const more = report.skipped.length > 5 ? `\u2026 +${report.skipped.length - 5}` : '';
         bits.push(`${report.skipped.length} row(s) skipped (line ${shown}${more})`);
+      }
+      if (report.removed) bits.push(`${report.removed} removed`);
+      if (report.converted?.length) {
+        bits.push(`${report.converted.length} product(s) gained variants`);
       }
       if (report.zeroed.length) {
         bits.push(`${report.zeroed.length} new product(s) left at 0: ${report.zeroed.slice(0, 3).join(', ')}`);
