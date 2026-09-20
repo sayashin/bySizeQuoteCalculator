@@ -1,6 +1,6 @@
 {
   "name": "broker-price-calculator",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "description": "Fast price calculator for signage brokers - works on mobile and desktop",
   "main": "main.js",
   "author": "Fred",
